@@ -25,6 +25,8 @@ namespace DyflexisExport
 		private readonly CookieContainer _cookieContainer = new CookieContainer();
 		private readonly HttpClient _httpClient;
 
+		private const int ScrapeMonthsCount = 2;
+
 		public ProgramInstance()
 		{
 			var httpClientHandler = new HttpClientHandler
@@ -48,9 +50,12 @@ namespace DyflexisExport
 				return;
 			}
 
-			var monthHtml = await ScrapeMonth(DateTime.Now);
-
-			ParseMonthHtml(monthHtml);
+			for (var month = 0; month < ScrapeMonthsCount; month++)
+			{
+				Console.WriteLine($"Scraping month {month + 1}/{ScrapeMonthsCount}");
+				var monthHtml = await ScrapeMonth(DateTime.Now.AddMonths(month));
+				ParseMonthHtml(monthHtml);
+			}
 		}
 
 		private async Task<bool> Login()
@@ -106,7 +111,7 @@ namespace DyflexisExport
 			}
 		}
 
-		private void ParseMonthHtml(string html)
+		private static void ParseMonthHtml(string html)
 		{
 			var htmlDocument = new HtmlDocument();
 			htmlDocument.LoadHtml(html);
