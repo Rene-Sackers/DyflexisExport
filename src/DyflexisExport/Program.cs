@@ -1,9 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using DyflexisExport.Models;
 using DyflexisExport.Services;
 using HtmlAgilityPack;
 
@@ -44,7 +47,7 @@ namespace DyflexisExport
 
 		public async Task Run()
 		{
-			if (!await Login())
+			if (false && !await Login())
 			{
 				Console.WriteLine("Failed to log in.");
 				return;
@@ -52,9 +55,12 @@ namespace DyflexisExport
 
 			for (var month = 0; month < ScrapeMonthsCount; month++)
 			{
-				Console.WriteLine($"Scraping month {month + 1}/{ScrapeMonthsCount}");
-				var monthHtml = await ScrapeMonth(DateTime.Now.AddMonths(month));
-				ParseMonthHtml(monthHtml);
+				var targetMonth = DateTime.Now.AddMonths(month);
+				Console.WriteLine($"Scraping month {month + 1}/{ScrapeMonthsCount} ({targetMonth.Year}-{targetMonth.Month})");
+
+				//var monthHtml = await ScrapeMonth(DateTime.Now.AddMonths(month));
+				var monthHtml = File.ReadAllText($"month html\\{targetMonth.Year}-{targetMonth.Month}.html");
+				var assignments = ParseMonthHtml(monthHtml).ToArray();
 			}
 		}
 
@@ -78,7 +84,7 @@ namespace DyflexisExport
 			}
 		}
 
-		private string GetRandomSeed() =>
+		private static string GetRandomSeed() =>
 			((int)DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1)).TotalSeconds).ToString();
 
 		private async Task<string> ScrapeMonth(DateTime date)
@@ -111,7 +117,7 @@ namespace DyflexisExport
 			}
 		}
 
-		private static void ParseMonthHtml(string html)
+		private static IEnumerable<WorkAssignment> ParseMonthHtml(string html)
 		{
 			var htmlDocument = new HtmlDocument();
 			htmlDocument.LoadHtml(html);
@@ -124,6 +130,8 @@ namespace DyflexisExport
 					continue;
 				
 				var date = day.GetAttributeValue("title", null);
+				Console.WriteLine($"=== {date} ===");
+
 				foreach (var assignment in assignments)
 				{
 					var assignmentId = AssignmentIdRegex.Match(assignment.GetAttributeValue("uo", string.Empty)).Groups["id"]?.Value;
@@ -136,8 +144,18 @@ namespace DyflexisExport
 					var parsedStartTime = DateTime.Parse($"{date} {startTime}");
 					var parsedEndTime = DateTime.Parse($"{date} {endTime}");
 
-					Console.WriteLine($"[{parsedStartTime:d}] ID: {assignmentId}, Placement: {placement}, Start: {parsedStartTime:t}, End: {parsedEndTime:t}");
+					Console.WriteLine($"ID: {assignmentId}, Placement: {placement}, Start: {parsedStartTime:t}, End: {parsedEndTime:t}");
+
+					yield return new WorkAssignment
+					{
+						Id = assignmentId,
+						Start = parsedStartTime,
+						End = parsedEndTime,
+						Placement = placement
+					};
 				}
+
+				Console.WriteLine();
 			}
 		}
 	}
