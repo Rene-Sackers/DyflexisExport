@@ -9,14 +9,20 @@ namespace DyflexisExport.Services
 	{
 		private const string SettingsFileName = "settings.json";
 
-		public static Settings Settings => SettingsLazy.Value;
+		private static readonly Lazy<Settings> SettingsLazy = new Lazy<Settings>(GetSettings);
 
-		public static readonly Lazy<Settings> SettingsLazy = new Lazy<Settings>(GetSettings);
+		public static Settings Settings => SettingsLazy.Value;
 
 		private static Settings GetSettings()
 		{
 			var json = File.ReadAllText(SettingsFileName);
 			return JsonConvert.DeserializeObject<Settings>(json);
+		}
+
+		public static void Save()
+		{
+			var json = JsonConvert.SerializeObject(Settings);
+			File.WriteAllText(SettingsFileName, json);
 		}
 	}
 }

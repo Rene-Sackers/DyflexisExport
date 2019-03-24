@@ -20,6 +20,7 @@
     <PackageReference Include="Google.Apis.Calendar.v3" Version="1.38.0.1529" />
     <PackageReference Include="HtmlAgilityPack" Version="1.11.0" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
+    <PackageReference Include="OAuth2" Version="0.8.40" />
   </ItemGroup>
 
 </Project>

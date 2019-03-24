@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -9,6 +11,9 @@ using System.Threading.Tasks;
 using DyflexisExport.Models;
 using DyflexisExport.Services;
 using HtmlAgilityPack;
+using OAuth2.Client.Impl;
+using OAuth2.Configuration;
+using OAuth2.Infrastructure;
 
 namespace DyflexisExport
 {
@@ -27,6 +32,7 @@ namespace DyflexisExport
 
 		private readonly CookieContainer _cookieContainer = new CookieContainer();
 		private readonly HttpClient _httpClient;
+		private readonly GoogleClient _oauthClient;
 
 		private const int ScrapeMonthsCount = 2;
 
@@ -43,10 +49,26 @@ namespace DyflexisExport
 			{
 				BaseAddress = new Uri(SettingsService.Settings.Url)
 			};
+
+			var clientConfiguration = new RuntimeClientConfiguration
+			{
+				ClientId = SettingsService.Settings.GoogleClientId,
+				ClientSecret = SettingsService.Settings.GoogleClientSecret,
+				Scope = "https://www.googleapis.com/auth/calendar.events",
+				RedirectUri = "urn:ietf:wg:oauth:2.0:oob"
+			};
+			
+			var requestFactory = new RequestFactory();
+
+			_oauthClient = new GoogleClient(requestFactory, clientConfiguration);
 		}
 
 		public async Task Run()
 		{
+			EnsureGoogleAuthentication();
+
+			return;
+
 			if (false && !await Login())
 			{
 				Console.WriteLine("Failed to log in.");
@@ -62,6 +84,28 @@ namespace DyflexisExport
 				var monthHtml = File.ReadAllText($"month html\\{targetMonth.Year}-{targetMonth.Month}.html");
 				var assignments = ParseMonthHtml(monthHtml).ToArray();
 			}
+		}
+
+		private void GetNewAuthToken()
+		{
+			Console.WriteLine($"Authenticate application: {_oauthClient.GetLoginLinkUri()}");
+			Console.Write("Google code: ");
+			var authorizationToken = Console.ReadLine();
+
+			SettingsService.Settings.AuthorizationToken = authorizationToken;
+			SettingsService.Save();
+		}
+
+		private void EnsureGoogleAuthentication()
+		{
+			if (string.IsNullOrWhiteSpace(SettingsService.Settings.AuthorizationToken))
+				GetNewAuthToken();
+
+			var userInfo = _oauthClient.GetUserInfo(new NameValueCollection
+			{
+				{"refresh_token", SettingsService.Settings.AuthorizationToken},
+				{"grant_type", "refresh_token"}
+			});
 		}
 
 		private async Task<bool> Login()
