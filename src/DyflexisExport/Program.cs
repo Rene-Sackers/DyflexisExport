@@ -7,13 +7,23 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using DyflexisExport.Models;
 using DyflexisExport.Services;
+using Google.Apis.Auth.OAuth2;
+using Google.Apis.Auth.OAuth2.Flows;
+using Google.Apis.Auth.OAuth2.Responses;
+using Google.Apis.Calendar.v3;
+using Google.Apis.Calendar.v3.Data;
+using Google.Apis.Services;
+using Google.Apis.Util.Store;
 using HtmlAgilityPack;
-using OAuth2.Client.Impl;
-using OAuth2.Configuration;
-using OAuth2.Infrastructure;
+using Newtonsoft.Json;
+
+//using OAuth2.Client.Impl;
+//using OAuth2.Configuration;
+//using OAuth2.Infrastructure;
 
 namespace DyflexisExport
 {
@@ -32,7 +42,7 @@ namespace DyflexisExport
 
 		private readonly CookieContainer _cookieContainer = new CookieContainer();
 		private readonly HttpClient _httpClient;
-		private readonly GoogleClient _oauthClient;
+		//private readonly GoogleClient _oauthClient;
 
 		private const int ScrapeMonthsCount = 2;
 
@@ -50,22 +60,24 @@ namespace DyflexisExport
 				BaseAddress = new Uri(SettingsService.Settings.Url)
 			};
 
-			var clientConfiguration = new RuntimeClientConfiguration
-			{
-				ClientId = SettingsService.Settings.GoogleClientId,
-				ClientSecret = SettingsService.Settings.GoogleClientSecret,
-				Scope = "https://www.googleapis.com/auth/calendar.events",
-				RedirectUri = "urn:ietf:wg:oauth:2.0:oob"
-			};
-			
-			var requestFactory = new RequestFactory();
+			//var clientConfiguration = new RuntimeClientConfiguration
+			//{
+			//	ClientId = SettingsService.Settings.GoogleClientId,
+			//	ClientSecret = SettingsService.Settings.GoogleClientSecret,
+			//	Scope = "https://www.googleapis.com/auth/calendar.events",
+			//	RedirectUri = "urn:ietf:wg:oauth:2.0:oob"
+			//};
 
-			_oauthClient = new GoogleClient(requestFactory, clientConfiguration);
+			//var requestFactory = new RequestFactory();
+
+			//_oauthClient = new GoogleClient(requestFactory, clientConfiguration);
 		}
 
 		public async Task Run()
 		{
-			EnsureGoogleAuthentication();
+			await EnsureGoogleAuthentication();
+			
+			await EnsureCalendarId();
 
 			return;
 
@@ -86,26 +98,104 @@ namespace DyflexisExport
 			}
 		}
 
-		private void GetNewAuthToken()
+		private async Task<UserCredential> GetUserCredentials()
 		{
-			Console.WriteLine($"Authenticate application: {_oauthClient.GetLoginLinkUri()}");
-			Console.Write("Google code: ");
-			var authorizationToken = Console.ReadLine();
+			var clientSecrets = new ClientSecrets
+			{
+				ClientId = SettingsService.Settings.GoogleClientId,
+				ClientSecret = SettingsService.Settings.GoogleClientSecret
+			};
 
-			SettingsService.Settings.AuthorizationToken = authorizationToken;
-			SettingsService.Save();
+			if (SettingsService.Settings.GoogleApiTokenResponse != null)
+			{
+				var initializer = new GoogleAuthorizationCodeFlow.Initializer()
+				{
+					ClientSecrets = clientSecrets
+				};
+
+				return new UserCredential(new GoogleAuthorizationCodeFlow(initializer), "user", SettingsService.Settings.GoogleApiTokenResponse);
+			}
+			
+			return await GoogleWebAuthorizationBroker.AuthorizeAsync(
+				clientSecrets,
+				new[] { "https://www.googleapis.com/auth/calendar" },
+				"user",
+				CancellationToken.None,
+				new DataStoreImplementation()
+			);
 		}
 
-		private void EnsureGoogleAuthentication()
+		private async Task EnsureCalendarId()
 		{
-			if (string.IsNullOrWhiteSpace(SettingsService.Settings.AuthorizationToken))
-				GetNewAuthToken();
-
-			var userInfo = _oauthClient.GetUserInfo(new NameValueCollection
+			if (!string.IsNullOrEmpty(SettingsService.Settings.TargetCalendarId))
+				return;
+			
+			int calendarId;
+			while (true)
 			{
-				{"refresh_token", SettingsService.Settings.AuthorizationToken},
-				{"grant_type", "refresh_token"}
+				Console.WriteLine("Choose a calendar.");
+
+				if (int.TryParse(Console.ReadLine(), out calendarId))
+					break;
+
+				Console.Write("Calendar nr.: ");
+			}
+		}
+
+		private async Task EnsureGoogleAuthentication()
+		{
+			var userCredentials = await GetUserCredentials();
+
+			var service = new CalendarService(new BaseClientService.Initializer
+			{
+				HttpClientInitializer = userCredentials,
+				ApplicationName = "DyflexisExport"
 			});
+
+			var listCalendarsRequest = service.CalendarList.List();
+			var calendarList = await listCalendarsRequest.ExecuteAsync();
+			foreach (var calendar in calendarList.Items)
+			{
+				Console.WriteLine($"[{calendar.Id}] {calendar.Summary}");
+			}
+
+			// Define parameters of request.
+			var request = service.Events.List(SettingsService.Settings.TargetCalendarId);
+			request.TimeMin = DateTime.Now;
+			request.ShowDeleted = false;
+			request.SingleEvents = true;
+			request.MaxResults = 10;
+			request.OrderBy = EventsResource.ListRequest.OrderByEnum.StartTime;
+
+			// List events.
+			var events = request.Execute();
+			Console.WriteLine("Upcoming events:");
+			if (events.Items != null && events.Items.Count > 0)
+			{
+				foreach (var eventItem in events.Items)
+				{
+					var when = eventItem.Start.DateTime.ToString();
+					if (string.IsNullOrEmpty(when))
+					{
+						when = eventItem.Start.Date;
+					}
+					Console.WriteLine("{0} ({1})", eventItem.Summary, when);
+				}
+			}
+			else
+			{
+				Console.WriteLine("No upcoming events found.");
+			}
+			Console.Read();
+
+			//if (string.IsNullOrWhiteSpace(SettingsService.Settings.AuthorizationToken))
+			//	GetNewAuthToken();
+
+			//var userInfo = _oauthClient.GetUserInfo(new NameValueCollection
+			//{
+			//	{"refresh_token", SettingsService.Settings.AuthorizationToken},
+			//	{"grant_type", "refresh_token"}
+			//});
 		}
 
 		private async Task<bool> Login()
@@ -172,7 +262,7 @@ namespace DyflexisExport
 				var assignments = day.SelectNodes(".//div[contains(@uo,'assignment://')]");
 				if (assignments == null || assignments.Count == 0)
 					continue;
-				
+
 				var date = day.GetAttributeValue("title", null);
 				Console.WriteLine($"=== {date} ===");
 
@@ -201,6 +291,57 @@ namespace DyflexisExport
 
 				Console.WriteLine();
 			}
+		}
+	}
+
+	public class DataStoreImplementation : IDataStore
+	{
+		private readonly Dictionary<string, dynamic> _data = new Dictionary<string, dynamic>();
+
+		public Task StoreAsync<T>(string key, T value)
+		{
+			Console.WriteLine($"Store: [{key}][{value?.GetType().FullName}]: {JsonConvert.SerializeObject(value)}");
+
+			if (key == "user")
+			{
+				SettingsService.Settings.GoogleApiTokenResponse = value as TokenResponse;
+				SettingsService.Save();
+
+				Console.WriteLine("Stored user token/refresh token");
+			}
+
+			_data[key] = value;
+
+			return Task.CompletedTask;
+		}
+
+		public Task DeleteAsync<T>(string key)
+		{
+			if (_data.ContainsKey(key))
+				_data.Remove(key);
+
+			return Task.CompletedTask;
+		}
+
+		public Task<T> GetAsync<T>(string key)
+		{
+			object value = null;
+
+			if (key == "user")
+				value = SettingsService.Settings.GoogleApiTokenResponse;
+			else if (_data.ContainsKey(key))
+				value = (T)_data[key];
+
+			Console.WriteLine($"Get: [{key}][{value?.GetType().FullName}]: {JsonConvert.SerializeObject(value)}");
+
+			return Task.FromResult(default(T));
+		}
+
+		public Task ClearAsync()
+		{
+			_data.Clear();
+
+			return Task.CompletedTask;
 		}
 	}
 }

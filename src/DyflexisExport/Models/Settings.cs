@@ -1,4 +1,6 @@
-﻿namespace DyflexisExport.Models
+﻿using Google.Apis.Auth.OAuth2.Responses;
+
+namespace DyflexisExport.Models
 {
 	public class Settings
 	{
@@ -12,6 +14,8 @@
 
 		public string GoogleClientSecret { get; set; }
 
-		public string AuthorizationToken { get; set; }
+		public TokenResponse GoogleApiTokenResponse { get; set; }
+
+		public string TargetCalendarId { get; set; }
 	}
 }
