@@ -17,5 +17,7 @@ namespace DyflexisExport.Models
 		public TokenResponse GoogleApiTokenResponse { get; set; }
 
 		public string TargetCalendarId { get; set; }
+
+		public int ScrapeMonthCount { get; set; } = 3;
 	}
 }

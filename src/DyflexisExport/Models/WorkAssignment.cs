@@ -6,9 +6,9 @@ namespace DyflexisExport.Models
 	{
 		public string Id { get; set; }
 
-		public DateTime Start { get; set; }
+		public DateTimeOffset Start { get; set; }
 
-		public DateTime End { get; set; }
+		public DateTimeOffset End { get; set; }
 
 		public string Placement { get; set; }
 	}
