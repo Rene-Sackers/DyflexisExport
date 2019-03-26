@@ -84,8 +84,16 @@ namespace DyflexisExport.Services
 		{
 			if (string.IsNullOrEmpty(SettingsService.Settings.TargetCalendarId))
 			{
-				_logger.Warn("No target calendar has been selected, promting user.");
-				await SelectCalendar();
+				if (SettingsService.Settings.IsRunningSetup)
+				{
+					_logger.Warn("No target calendar has been selected, promting user.");
+					await SelectCalendar();
+				}
+				else
+				{
+					_logger.Error("No target calendar selected.");
+					return false;
+				}
 			}
 
 			while (true)
@@ -161,6 +169,9 @@ namespace DyflexisExport.Services
 		{
 			if (!await _authenticationService.EnsureAuthenticated() || !await EnsureCalendarExists())
 			{
+				if (SettingsService.Settings.IsRunningSetup)
+					Console.ReadKey();
+
 				_consoleControlService.ShutDown();
 				return;
 			}
@@ -170,7 +181,12 @@ namespace DyflexisExport.Services
 			{
 				var scrapeDate = new DateTime(now.Year, now.Month + month, 1, 0, 0, 0);
 
-				var workAssignments = (await _dyflexisEventsService.GetAssignmentsForMonth(scrapeDate.Year, scrapeDate.Month)).ToList();
+				var workAssignments = (await _dyflexisEventsService.GetAssignmentsForMonth(scrapeDate.Year, scrapeDate.Month))?.ToList();
+
+				// If not running setup, empty the calendar to indicate something is wrong.
+				if (workAssignments == null && !SettingsService.Settings.IsRunningSetup)
+					workAssignments = new List<WorkAssignment>(0);
+
 				await RefreshCalendarMonth(scrapeDate, workAssignments);
 			}
 		}

@@ -79,14 +79,14 @@ namespace DyflexisExport
 				.SingleInstance()
 				.AsImplementedInterfaces();
 #endif
-
-
+			
 			var container = builder.Build();
 
 			var consoleControlService = container.Resolve<ConsoleControlService>();
 			consoleControlService.ShutDownRequested += () => Process.GetCurrentProcess().Kill();
 			
-			Console.ReadKey();
+			if (SettingsService.Settings.IsRunningSetup)
+				Console.ReadKey();
 
 			container.Dispose();
 		}

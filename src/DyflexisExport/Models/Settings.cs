@@ -19,5 +19,7 @@ namespace DyflexisExport.Models
 		public string TargetCalendarId { get; set; }
 
 		public int ScrapeMonthCount { get; set; } = 3;
+
+		public bool IsRunningSetup { get; set; }
 	}
 }

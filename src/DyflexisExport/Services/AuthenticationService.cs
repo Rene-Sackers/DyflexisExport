@@ -37,6 +37,12 @@ namespace DyflexisExport.Services
 			// No user token exists yet, open browser to authenticate and return credentials
 			if (SettingsService.Settings.GoogleApiTokenResponse == null)
 			{
+				if (!SettingsService.Settings.IsRunningSetup)
+				{
+					_logger.Error("No user token found.");
+					return null;
+				}
+
 				_logger.Warn("No user token found, opening browser to request permission.");
 
 				return await GoogleWebAuthorizationBroker.AuthorizeAsync(
