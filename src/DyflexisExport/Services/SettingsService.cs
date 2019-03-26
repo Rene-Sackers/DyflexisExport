@@ -16,7 +16,12 @@ namespace DyflexisExport.Services
 		private static Settings GetSettings()
 		{
 			var json = File.ReadAllText(SettingsFileName);
-			return JsonConvert.DeserializeObject<Settings>(json);
+			var settings = JsonConvert.DeserializeObject<Settings>(json);
+
+			if (!settings.Url.EndsWith("/"))
+				settings.Url += "/";
+
+			return settings;
 		}
 
 		public static void Save()

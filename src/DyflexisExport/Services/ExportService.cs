@@ -117,31 +117,26 @@ namespace DyflexisExport.Services
 			listEventsRequest.TimeMax = scapeDateTime.AddMonths(1);
 			var eventsResult = await listEventsRequest.ExecuteAsync();
 
-			var eventsToRemove = new List<Event>(eventsResult.Items);
+			var assignmentEvents = eventsResult.Items.Where(e => e.Description?.StartsWith(WorkAssignmentExtensions.EventDescriptionPrefix) == true);
+			var eventsToRemove = new List<Event>(assignmentEvents);
 			
 			foreach (var workAssignment in workAssignments)
 			{
-				var existingEvent = eventsToRemove.FirstOrDefault(e => e.Description == workAssignment.Id);
+				var existingEvent = eventsToRemove.FirstOrDefault(e => e.Description == workAssignment.EventDescription());
 
-				if (existingEvent != null)
+				if (existingEvent == null)
 				{
-					_logger.Info($"Event already added: {existingEvent.ToLogInfo()}");
+					_logger.Info($"Adding work assignment: {workAssignment.ToLogInfo()}");
 
-					eventsToRemove.Remove(existingEvent);
-
-					if (EventRequiresUpdating(existingEvent, workAssignment))
-					{
-						_logger.Info($"Event requires updating to: {workAssignment.ToLogInfo()}");
-
-						await service.Events.Update(workAssignment.ToEvent(), SettingsService.Settings.TargetCalendarId, existingEvent.Id).ExecuteAsync();
-					}
-
+					await service.Events.Insert(workAssignment.ToEvent(), SettingsService.Settings.TargetCalendarId).ExecuteAsync();
 					continue;
 				}
 
-				_logger.Info($"Adding work assignment: {workAssignment.ToLogInfo()}");
-				
-				await service.Events.Insert(workAssignment.ToEvent(), SettingsService.Settings.TargetCalendarId).ExecuteAsync();
+				_logger.Info($"Event already added: {existingEvent.ToLogInfo()}");
+
+				eventsToRemove.Remove(existingEvent);
+
+				await UpdateExistingEvent(service, workAssignment, existingEvent);
 			}
 
 			foreach (var eventToRemove in eventsToRemove)
@@ -149,6 +144,16 @@ namespace DyflexisExport.Services
 				_logger.Info($"Deleting event: {eventToRemove.ToLogInfo()}");
 
 				await service.Events.Delete(SettingsService.Settings.TargetCalendarId, eventToRemove.Id).ExecuteAsync();
+			}
+		}
+
+		private async Task UpdateExistingEvent(Google.Apis.Calendar.v3.CalendarService service, WorkAssignment workAssignment, Event existingEvent)
+		{
+			if (EventRequiresUpdating(existingEvent, workAssignment))
+			{
+				_logger.Info($"Event requires updating to: {workAssignment.ToLogInfo()}");
+
+				await service.Events.Update(workAssignment.ToEvent(), SettingsService.Settings.TargetCalendarId, existingEvent.Id).ExecuteAsync();
 			}
 		}
 

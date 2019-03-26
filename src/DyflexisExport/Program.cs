@@ -27,7 +27,7 @@ namespace DyflexisExport
 
 			var fileTarget = new FileTarget
 			{
-				FileName = "logs/server.log",
+				FileName = "logs/${shortdate}.log",
 				ArchiveAboveSize = 1024 * 1024 * 5, // 5 MB
 				Layout = nlogFormat
 			};
