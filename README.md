@@ -1,8 +1,8 @@
 # Dyflexis Export
 
-This tool exports work assignments from the Dyflexis planning software.
+This tool exports work assignments from the Dyflexis planning software to your Google Calendar.
 
-Signs in with the provided user/password, gets the HTML table for the current and coming months, and scrapes the appointments off of it.
+Signs in with the provided user/password on Dyflexis, gets the HTML table for the current and coming months, and scrapes the appointments off of it.
 It then puts them into a Google Calendar of your choice.
 
 ## Setup
@@ -37,3 +37,9 @@ Calendar nr.:
 ```
 
 Make sure you create a separate calendar, to make sure the application doesn't accidentally delete events from your actual calendar.
+
+## Disclaimer
+
+Not responsible for you not showing up to work or any of the consequences in case the application fails to properly import/export a work assignment.
+
+Not responsible for your entire calendar getting emptied or deleted.
