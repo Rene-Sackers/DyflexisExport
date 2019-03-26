@@ -60,8 +60,8 @@ namespace DyflexisExport.Services
 					var startTime = timeSplit[0];
 					var endTime = timeSplit[1];
 
-					var parsedStartTime = new DateTimeOffset(DateTime.Parse($"{date} {startTime}"), TimeZoneInfo.Local.BaseUtcOffset);
-					var parsedEndTime = new DateTimeOffset(DateTime.Parse($"{date} {endTime}"), TimeZoneInfo.Local.BaseUtcOffset);
+					var parsedStartTime = DateTime.Parse($"{date} {startTime}");
+					var parsedEndTime = DateTime.Parse($"{date} {endTime}");
 
 					_logger.Info($"Found appointment. Date: {date}, ID: {assignmentId}, Placement: {placement}, Start: {parsedStartTime:t}, End: {parsedEndTime:t}");
 
