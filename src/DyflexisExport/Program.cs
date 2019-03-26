@@ -84,9 +84,14 @@ namespace DyflexisExport
 
 			var consoleControlService = container.Resolve<ConsoleControlService>();
 			consoleControlService.ShutDownRequested += () => Process.GetCurrentProcess().Kill();
-			
+
 			if (SettingsService.Settings.IsRunningSetup)
+			{
+				SettingsService.Settings.IsRunningSetup = false;
+				SettingsService.Save();
+
 				Console.ReadKey();
+			}
 
 			container.Dispose();
 		}
