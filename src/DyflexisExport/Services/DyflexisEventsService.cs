@@ -43,37 +43,44 @@ namespace DyflexisExport.Services
 			htmlDocument.LoadHtml(html);
 
 			var days = htmlDocument.DocumentNode.SelectNodes("//table[@class='calender']//td[@title and (not(@class) or @class!='outsideMonth')]");
-			foreach (var day in days)
+			return days.SelectMany(ParseDayFromHtml);
+		}
+
+		private IEnumerable<WorkAssignment> ParseDayFromHtml(HtmlNode day)
+		{
+			var assignments = day.SelectNodes(".//div[contains(@uo,'assignment://')]");
+			if (assignments == null || assignments.Count == 0)
+				yield break;
+
+			var date = day.GetAttributeValue("title", null);
+
+			foreach (var assignment in assignments)
 			{
-				var assignments = day.SelectNodes(".//div[contains(@uo,'assignment://')]");
-				if (assignments == null || assignments.Count == 0)
-					continue;
-
-				var date = day.GetAttributeValue("title", null);
-
-				foreach (var assignment in assignments)
-				{
-					var assignmentId = AssignmentIdRegex.Match(assignment.GetAttributeValue("uo", string.Empty)).Groups["id"]?.Value;
-					var placement = HtmlEntity.DeEntitize(assignment.SelectSingleNode("div[@title]").InnerText);
-					var timeString = assignment.SelectSingleNode("b").InnerText;
-					var timeSplit = timeString.Split(" - ");
-					var startTime = timeSplit[0];
-					var endTime = timeSplit[1];
-
-					var parsedStartTime = DateTime.Parse($"{date} {startTime}");
-					var parsedEndTime = DateTime.Parse($"{date} {endTime}");
-
-					_logger.Info($"Found appointment. Date: {date}, ID: {assignmentId}, Placement: {placement}, Start: {parsedStartTime:t}, End: {parsedEndTime:t}");
-
-					yield return new WorkAssignment
-					{
-						Id = assignmentId,
-						Start = parsedStartTime,
-						End = parsedEndTime,
-						Placement = placement
-					};
-				}
+				yield return ParseWorkAssignmentFromHtml(assignment, date);
 			}
+		}
+
+		private WorkAssignment ParseWorkAssignmentFromHtml(HtmlNode assignment, string date)
+		{
+			var assignmentId = AssignmentIdRegex.Match(assignment.GetAttributeValue("uo", string.Empty)).Groups["id"]?.Value;
+			var placement = HtmlEntity.DeEntitize(assignment.SelectSingleNode("div[@title]").InnerText);
+			var timeString = assignment.SelectSingleNode("b").InnerText;
+			var timeSplit = timeString.Split(" - ");
+			var startTime = timeSplit[0];
+			var endTime = timeSplit[1];
+
+			var parsedStartTime = DateTime.Parse($"{date} {startTime}");
+			var parsedEndTime = DateTime.Parse($"{date} {endTime}");
+
+			_logger.Info($"Found appointment. Date: {date}, ID: {assignmentId}, Placement: {placement}, Start: {parsedStartTime:t}, End: {parsedEndTime:t}");
+
+			return new WorkAssignment
+			{
+				Id = assignmentId,
+				Start = parsedStartTime,
+				End = parsedEndTime,
+				Placement = placement
+			};
 		}
 	}
 }
