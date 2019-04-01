@@ -50,14 +50,11 @@ namespace DyflexisExport.Services
 		{
 			var assignments = day.SelectNodes(".//div[contains(@uo,'assignment://')]");
 			if (assignments == null || assignments.Count == 0)
-				yield break;
+				return Enumerable.Empty<WorkAssignment>();
 
 			var date = day.GetAttributeValue("title", null);
 
-			foreach (var assignment in assignments)
-			{
-				yield return ParseWorkAssignmentFromHtml(assignment, date);
-			}
+			return assignments.Select(assignment => ParseWorkAssignmentFromHtml(assignment, date));
 		}
 
 		private WorkAssignment ParseWorkAssignmentFromHtml(HtmlNode assignment, string date)
