@@ -34,7 +34,9 @@ namespace DyflexisExport.Services
 			_logger.Info($"Scraping date {year}/{month}");
 			
 			var monthHtml = await _dyflexisHtmlScraper.GetMonthHtml(year, month);
-			return monthHtml == null ? null : ParseMonthHtml(monthHtml).ToArray();
+			var workAssignments = ParseMonthHtml(monthHtml).Where(wa => wa.Start.Year == year && wa.Start.Month == month).ToArray();
+
+			return monthHtml == null ? null : workAssignments.ToArray();
 		}
 
 		private IEnumerable<WorkAssignment> ParseMonthHtml(string html)
@@ -42,7 +44,7 @@ namespace DyflexisExport.Services
 			var htmlDocument = new HtmlDocument();
 			htmlDocument.LoadHtml(html);
 
-			var days = htmlDocument.DocumentNode.SelectNodes("//table[@class='calender']//td[@title and (not(@class) or @class!='outsideMonth')]");
+			var days = htmlDocument.DocumentNode.SelectNodes("//table[@class='calender']//td[@title]");
 			return days.SelectMany(ParseDayFromHtml);
 		}
 

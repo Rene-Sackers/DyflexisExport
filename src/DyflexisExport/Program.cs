@@ -73,12 +73,6 @@ namespace DyflexisExport
 			builder.RegisterType<DyflexisHtmlScraper>()
 				.SingleInstance()
 				.AsImplementedInterfaces();
-
-#if DEBUG
-			builder.RegisterType<LocalDyflexisHtmlScraper>()
-				.SingleInstance()
-				.AsImplementedInterfaces();
-#endif
 			
 			var container = builder.Build();
 
