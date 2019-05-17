@@ -125,12 +125,12 @@ namespace DyflexisExport.Services
 			listEventsRequest.TimeMax = scapeDateTime.AddMonths(1);
 			var eventsResult = await listEventsRequest.ExecuteAsync();
 
-			var assignmentEvents = eventsResult.Items.Where(e => e.Description?.StartsWith(WorkAssignmentExtensions.EventDescriptionPrefix) == true);
+			var assignmentEvents = eventsResult.Items.Where(e => e.Description?.Contains(WorkAssignmentExtensions.EventDescriptionPrefix) == true);
 			var eventsToRemove = new List<Event>(assignmentEvents);
 			
 			foreach (var workAssignment in workAssignments)
 			{
-				var existingEvent = eventsToRemove.FirstOrDefault(e => e.Description == workAssignment.EventDescription());
+				var existingEvent = eventsToRemove.FirstOrDefault(e => e.Description.Contains(workAssignment.EventDescription()));
 
 				if (existingEvent == null)
 				{
@@ -161,7 +161,9 @@ namespace DyflexisExport.Services
 			{
 				_logger.Info($"Event requires updating to: {workAssignment.ToLogInfo()}");
 
-				await service.Events.Update(workAssignment.ToEvent(), SettingsService.Settings.TargetCalendarId, existingEvent.Id).ExecuteAsync();
+				var updatedEvent = workAssignment.ToEvent();
+				updatedEvent.Description = existingEvent.Description;
+				await service.Events.Update(updatedEvent, SettingsService.Settings.TargetCalendarId, existingEvent.Id).ExecuteAsync();
 			}
 		}
 
