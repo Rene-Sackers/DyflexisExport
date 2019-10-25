@@ -1,19 +1,27 @@
 ﻿using System;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading.Tasks;
+using DyflexisExport.Models;
 using DyflexisExport.Services.Interfaces;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 using NLog;
 
 namespace DyflexisExport.Services
 {
 	public class DyflexisHtmlScraper : IDisposable, IDyflexisHtmlScraper
 	{
+		private const string LoginUrl = "login/authenticate";
+
 		private static readonly TimeSpan LoginTimeout = new TimeSpan(12, 0, 0);
 
 		private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
 		private readonly CookieContainer _cookieContainer = new CookieContainer();
 		private readonly HttpClient _httpClient;
+
+		private string _appUrl;
 
 		private DateTime? _lastLogin;
 
@@ -26,10 +34,6 @@ namespace DyflexisExport.Services
 			};
 
 			_httpClient = new HttpClient(httpClientHandler);
-			_httpClient = new HttpClient
-			{
-				BaseAddress = new Uri(SettingsService.Settings.Url)
-			};
 		}
 
 		private async Task<bool> Login()
@@ -39,24 +43,36 @@ namespace DyflexisExport.Services
 
 			_logger.Info("Logging in");
 
-			var formData = new MultipartFormDataContent
+			var loginModel = new Login
 			{
-				{new StringContent(SettingsService.Settings.Username), "xvalues[user]"},
-				{new StringContent(SettingsService.Settings.Password), "xvalues[pass]"},
-				{new StringContent("Log in"), "submit"}
+				Username = SettingsService.Settings.Username,
+				Password = SettingsService.Settings.Password,
+				RememberMe = true
 			};
 
+			var json = JsonConvert.SerializeObject(loginModel, new JsonSerializerSettings
+			{
+				ContractResolver = new CamelCasePropertyNamesContractResolver()
+			});
+			var formData = new StringContent(json);
+			formData.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+			formData.Headers.ContentLength = json.Length;
+			
 			try
 			{
-				using (var postRequest = new HttpRequestMessage(HttpMethod.Post, string.Empty) { Content = formData })
-				using (var response = await _httpClient.SendAsync(postRequest))
+				using var postRequest = new HttpRequestMessage(HttpMethod.Post, SettingsService.Settings.Url + LoginUrl) { Content = formData };
+				using var response = await _httpClient.SendAsync(postRequest);
+
+				if (!response.IsSuccessStatusCode)
 				{
-					if (!response.IsSuccessStatusCode)
-					{
-						_logger.Error($"Failed to log in for scraping. Status code: {response.StatusCode}");
-						return false;
-					}
+					_logger.Error($"Failed to log in for scraping. Status code: {response.StatusCode}");
+					return false;
 				}
+
+				var responseJson = await response.Content.ReadAsStringAsync();
+				var parsedResponse = JsonConvert.DeserializeObject<LoginResponse>(responseJson);
+
+				_appUrl = parsedResponse.Url;
 			}
 			catch (Exception e)
 			{
@@ -79,7 +95,7 @@ namespace DyflexisExport.Services
 			if (!await Login())
 				return null;
 
-			var scheduleUrl = $"rooster2/index2?periode={year}-{month}&_={GetRandomSeed()}";
+			var scheduleUrl = $"{_appUrl}rooster2/index2?periode={year}-{month}&_={GetRandomSeed()}";
 
 			_logger.Info($"Scraping URL {scheduleUrl}");
 

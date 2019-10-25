@@ -1,0 +1,9 @@
+{
+	"Username": "bob",
+	"Password": "ross",
+	"Url": "https://app.planning.nu/company",
+	"GoogleClientId": "123456789123-example.apps.googleusercontent.com",
+	"GoogleClientSecret": "eXaMpLe",
+	"ScrapeMonthCount": 3,
+	"IsRunningSetup": true
+}
