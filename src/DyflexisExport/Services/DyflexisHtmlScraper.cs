@@ -60,20 +60,19 @@ namespace DyflexisExport.Services
 			
 			try
 			{
-				using (var postRequest = new HttpRequestMessage(HttpMethod.Post, SettingsService.Settings.Url + LoginUrl) { Content = formData })
-				using (var response = await _httpClient.SendAsync(postRequest))
+				using var postRequest = new HttpRequestMessage(HttpMethod.Post, SettingsService.Settings.Url + LoginUrl) { Content = formData };
+				using var response = await _httpClient.SendAsync(postRequest);
+
+				if (!response.IsSuccessStatusCode)
 				{
-					if (!response.IsSuccessStatusCode)
-					{
-						_logger.Error($"Failed to log in for scraping. Status code: {response.StatusCode}");
-						return false;
-					}
-
-					var responseJson = await response.Content.ReadAsStringAsync();
-					var parsedResponse = JsonConvert.DeserializeObject<LoginResponse>(responseJson);
-
-					_appUrl = parsedResponse.Url;
+					_logger.Error($"Failed to log in for scraping. Status code: {response.StatusCode}");
+					return false;
 				}
+
+				var responseJson = await response.Content.ReadAsStringAsync();
+				var parsedResponse = JsonConvert.DeserializeObject<LoginResponse>(responseJson);
+
+				_appUrl = parsedResponse.Url;
 			}
 			catch (Exception e)
 			{
