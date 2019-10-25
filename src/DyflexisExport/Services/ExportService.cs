@@ -181,7 +181,8 @@ namespace DyflexisExport.Services
 			var now = DateTime.Now;
 			for (var month = 0; month < SettingsService.Settings.ScrapeMonthCount; month++)
 			{
-				var scrapeDate = new DateTime(now.Year, now.Month + month, 1, 0, 0, 0);
+				var scrapeDate = new DateTime(now.Year, now.Month, 1, 0, 0, 0);
+				scrapeDate = scrapeDate.AddMonths(month);
 
 				var workAssignments = (await _dyflexisEventsService.GetAssignmentsForMonth(scrapeDate.Year, scrapeDate.Month))?.ToList();
 
