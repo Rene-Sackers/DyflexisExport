@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.IO;
 using Autofac;
 using DyflexisExport.Providers;
 using DyflexisExport.Services;
@@ -25,9 +26,11 @@ namespace DyflexisExport
 			loggingConfiguration.AddTarget("console", coloredConsoleTarget);
 			loggingConfiguration.AddRule(LogLevel.Trace, LogLevel.Fatal, coloredConsoleTarget);
 
+			var logsFolder = Path.Join(Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName), "logs");
+
 			var fileTarget = new FileTarget
 			{
-				FileName = "logs/${shortdate}.log",
+				FileName = logsFolder + "/${shortdate}.log",
 				ArchiveAboveSize = 1024 * 1024 * 5, // 5 MB
 				Layout = nlogFormat
 			};
